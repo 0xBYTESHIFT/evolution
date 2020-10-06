@@ -1,0 +1,6 @@
+[submodule "submodules/neur"]
+	path = submodules/neur
+	url = https://github.com/0xBYTESHIFT/neur
+[submodule "submodules/imgui"]
+	path = submodules/imgui
+	url = https://github.com/ocornut/imgui
