@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.11.0)
 project(evolution VERSION 0.1.6)
 
 include(CTest)
@@ -21,11 +21,27 @@ if(NOT OpenBLAS_FOUND)
     message(FATAL_ERROR "no openblas")
 endif()
 
+include(FetchContent)
+FetchContent_Declare(neur
+  GIT_REPOSITORY https://github.com/0xBYTESHIFT/neur
+  #GIT_TAG develop   # it's much better to use a specific Git revision or Git tag for reproducibility
+)
+FetchContent_MakeAvailable(neur)
+if(NOT neur_POPULATED)
+  FetchContent_Populate(neur)
+  add_subdirectory(${neur_SOURCE_DIR} ${neur_BINARY_DIR})
+endif()
+
+FetchContent_Declare(imgui
+  GIT_REPOSITORY https://github.com/ocornut/imgui
+  #GIT_TAG develop   # it's much better to use a specific Git revision or Git tag for reproducibility
+)
+FetchContent_MakeAvailable(imgui)
+
 include_directories(
-    submodules/neur/include
-    submodules/
-    submodules/imgui/
-    submodules/imgui/examples
+    ${imgui_SOURCE_DIR}/
+    ${imgui_SOURCE_DIR}/examples
+    ${neur_SOURCE_DIR}/include
     ${Boost_INCLUDE_DIR}
     ${SDL2_INCLUDE_DIRS}
     ${GLEW_INCLUDE_DIRS}
@@ -35,12 +51,12 @@ include_directories(
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -s -DNDEBUG -march=native")
 add_executable(evolution main.cpp
     ui.cpp
-    submodules/imgui/imgui.cpp
-    submodules/imgui/imgui_draw.cpp
-    submodules/imgui/imgui_widgets.cpp
-    submodules/imgui/imgui_demo.cpp
-    submodules/imgui/examples/imgui_impl_opengl3.cpp
-    submodules/imgui/examples/imgui_impl_sdl.cpp
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/imgui_demo.cpp
+    ${imgui_SOURCE_DIR}/examples/imgui_impl_opengl3.cpp
+    ${imgui_SOURCE_DIR}/examples/imgui_impl_sdl.cpp
 )
 target_link_libraries(evolution
     OpenBLAS::OpenBLAS
