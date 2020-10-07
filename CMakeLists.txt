@@ -39,6 +39,8 @@ FetchContent_Declare(imgui
 FetchContent_MakeAvailable(imgui)
 
 include_directories(
+    include/
+    ui/
     ${imgui_SOURCE_DIR}/
     ${imgui_SOURCE_DIR}/examples
     ${neur_SOURCE_DIR}/include
@@ -50,7 +52,7 @@ include_directories(
 
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -s -DNDEBUG -march=native")
 add_executable(evolution main.cpp
-    ui.cpp
+    ui/ui.cpp
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
     ${imgui_SOURCE_DIR}/imgui_widgets.cpp
