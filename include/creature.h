@@ -1,8 +1,10 @@
 #pragma once
 #include <xtensor/xarray.hpp>
 #include <random>
+#include <chrono>
 #include <cmath>
 #include "brain.h"
+#include "utils.h"
 #include "property.h"
 
 class world_object{
@@ -39,25 +41,32 @@ public:
     void act();
     property<float> hp;
     property<coord_t> speed;
-    property<float> angle;
+    property<float> angle_speed, angle;
     property<float> radius;
+    property<std::chrono::milliseconds> dspeed_time = 0;
+    property<std::chrono::milliseconds> dang_speed_time = 0;
 protected:
+    std::chrono::steady_clock::time_point m_dspeed_tp = 
+        std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point m_dang_speed_tp = 
+        std::chrono::steady_clock::now();
     struct decision{
         coord_t d_sp;
-        float d_angle;
+        float d_asp;
+        float will;
     };
     std::vector<decision> m_dec;
     neur::brain<float> m_br;
 };
 
-inline creature::creature(brain_t &&br)
-    :m_br(std::move(br))
-{
+inline creature::creature(brain_t &&br){
+    this->m_br = std::move(br);
 }
 inline creature::creature(const creature &rhs){
     this->m_br = rhs.m_br;
     this->x = rhs.x;
     this->y = rhs.y;
+    this->angle_speed = rhs.angle_speed;
     this->angle = rhs.angle;
     this->speed = rhs.speed;
     this->hp = rhs.hp;
@@ -67,6 +76,7 @@ inline creature::creature(creature &&rhs){
     this->m_br = std::move(rhs.m_br);
     this->x = std::move(rhs.x);
     this->y = std::move(rhs.y);
+    this->angle_speed = std::move(rhs.angle_speed);
     this->angle = std::move(rhs.angle);
     this->speed = std::move(rhs.speed);
     this->hp = std::move(rhs.hp);
@@ -100,39 +110,57 @@ inline creature::creature(const creature &parent, std::mt19937 &gen,
 }
 
 inline void creature::percieve(const std::vector<std::shared_ptr<world_object>> &objs){
-    xt::xarray<float> in_vec;
-    in_vec.resize({1, 5});
-    static const auto pi = std::atan(1)*4;
+    xt::xarray<float> in_vec = xt::zeros<float>({1, 5});
+    *(in_vec.data()+2) = 1./(hp+1)*100; //reverse hp to stimulate act
+    *(in_vec.data()+3) = dspeed_time().count()*1./1000.; //time since last movement
+    *(in_vec.data()+4) = dang_speed_time().count()*1./1000.; //time since last movement
+    xt::xarray<float> out = m_br.process(in_vec);
+    auto dec = decision{(coord_t)out.at(0), (float)out.at(1), (float)out.at(2)};
+    m_dec.emplace_back(std::move(dec));
+
     for(auto &obj:objs){
         auto dx = obj->x - x;
         auto dy = obj->y - y;
         auto angle_obj = std::atan(dy/dx);
         if(dx > 0){
             if(dy < 0){
-                angle_obj = 2*pi+angle_obj;
+                angle_obj = 2*math::pi+angle_obj;
             }
         }else{
-            angle_obj = 1*pi+angle_obj;
+            angle_obj = 1*math::pi+angle_obj;
         }
         auto angle_rel = angle_obj - angle();
-        if(angle_rel < -pi) angle_rel += 2*pi;
-        if(angle_rel > +pi) angle_rel -= 2*pi;
+        if(angle_rel < -math::pi) angle_rel += 2*math::pi;
+        if(angle_rel > +math::pi) angle_rel -= 2*math::pi;
         *(in_vec.data()+0) = angle_rel; //delta angle
-        *(in_vec.data()+1) = std::sqrt(std::pow(dx, 2) + std::pow(dy, 2)); //distance
-        *(in_vec.data()+2) = 1./(hp+1); //reverse hp to stimulate act
-        *(in_vec.data()+3) = 0;
-        *(in_vec.data()+4) = 0;
-        xt::xarray<float> out = m_br.process(in_vec);
+        *(in_vec.data()+1) = math::pif(obj->x, obj->y, x, y); //distance
+        out = m_br.process(in_vec);
         auto dec = decision{(coord_t)out.at(0), (float)out.at(1)};
         m_dec.emplace_back(std::move(dec));
     }
 }
 inline void creature::act(){
-    if(m_dec.empty()){
-        return;
-    }
-    auto &dec = m_dec.front(); //TODO:choose decision properly
+    auto now = std::chrono::steady_clock::now();
+    auto ds_delta = now - m_dspeed_tp;
+    auto das_delta = now - m_dang_speed_tp;
+    std::sort(m_dec.begin(), m_dec.end(),
+        [](auto lhs, auto rhs){ return lhs.will > rhs.will; });
+    auto dec = *m_dec.begin();
+    auto &will = dec.will;
+    auto &d_sp = dec.d_sp;
+    auto &d_asp = dec.d_asp;
+
     this->speed() += dec.d_sp;
-    this->angle() += dec.d_angle;
+    this->angle_speed() += dec.d_asp;
+    if(std::abs(dec.d_sp) > 0.1){
+        m_dspeed_tp = now;
+    }else{
+        dspeed_time = std::chrono::duration_cast<std::chrono::milliseconds>(ds_delta);
+    }
+    if(std::abs(dec.d_asp) > 0.1){
+        m_dang_speed_tp = now;
+    }else{
+        dang_speed_time = std::chrono::duration_cast<std::chrono::milliseconds>(das_delta);
+    }
     m_dec.clear();
 }

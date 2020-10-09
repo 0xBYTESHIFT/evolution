@@ -75,7 +75,9 @@ void ui_imgui::start(){
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     float accel=1;
     bool accel_reset = false;
+    bool draw = true;
     auto& cps = wr.cps();
+    auto& time_scale = wr.time_scale();
     auto& fds_max = wr.foods_max();
     auto& crs_max = wr.creatures_max();
     auto& wr_w = wr.w();
@@ -84,6 +86,7 @@ void ui_imgui::start(){
     auto& crs_perc_max = wr.creatures_percept_max();
     auto& crs_hp_max = wr.creatures_hp_max();
     auto& crs_speed_max = wr.creatures_speed_max();
+    auto& crs_angle_speed_max = wr.creatures_angle_speed_max();
     auto& crs_rad_min = wr.creatures_radius_min();
     auto& crs_rad_max = wr.creatures_radius_max();
     auto& wr_dhp = wr.dhp_per_iter();
@@ -126,7 +129,9 @@ void ui_imgui::start(){
 
         ImGui::Begin("UI");
         ImGui::Text("Time per frame %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::Checkbox("Draw", &draw);
         ImGui::InputScalar ("cps", ImGuiDataType_U64, &cps);
+        ImGui::InputScalar ("Time scale", ImGuiDataType_Double, &time_scale);
         ImGui::InputScalar ("World w", ImGuiDataType_U64, &wr_w);
         ImGui::InputScalar ("World h", ImGuiDataType_U64, &wr_h);
         ImGui::InputScalar ("Max creatures", ImGuiDataType_U64, &crs_max);
@@ -134,12 +139,14 @@ void ui_imgui::start(){
         ImGui::InputScalar ("Hp", ImGuiDataType_Float, &crs_hp_max);
         ImGui::InputScalar ("Hp delta", ImGuiDataType_Float, &wr_dhp);
         ImGui::InputScalar ("Speed max", ImGuiDataType_Float, &crs_speed_max);
+        ImGui::InputScalar ("Angle speed max", ImGuiDataType_Float, &crs_angle_speed_max);
+
+        if(draw){
 
         auto crs = wr.creatures();
         auto fds = wr.foods();
         auto cr_clr = 0xFFFFFFFF;
         auto fd_clr = 0x80EE80FF;
-        size_t i=0;
         for(const auto &cr_ptr:crs){
             auto &cr = *cr_ptr;
             auto txt_speed = std::to_string(cr.speed());
@@ -148,12 +155,16 @@ void ui_imgui::start(){
             auto y_ = cam.interp_y(cr.y());
             drawList->AddCircle({x_, y_}, cr.radius(), cr_clr);
             drawList->AddLine({x_, y_}, {x_+cr.radius()*std::cos(cr.angle()), y_+cr.radius()*std::sin(cr.angle())}, cr_clr);
-            i++;
         }
         for(const auto &fd:fds){
             auto x_ = cam.interp_x(fd.x());
             auto y_ = cam.interp_y(fd.y());
+            if(fd.eaten){
+                continue;
+            }
             drawList->AddCircle({x_, y_}, fd.radius, fd_clr);
+        }
+
         }
         ImGui::End();
 
